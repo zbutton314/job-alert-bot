@@ -16,20 +16,19 @@ def send_alert(df_new: pd.DataFrame) -> None:
             url = row["url"]
             text += f"\n• <{url}|{title}>"
 
-    print(text.strip())
-
-    # try:
-    response = client.chat_postMessage(
-        channel="#job-alerts",
-        blocks=[
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": text.strip()
+    try:
+        response = client.chat_postMessage(
+            channel="#job-alerts",
+            text=text.strip(),
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": text.strip()
+                    }
                 }
-            }
-        ]
-    )
-    # except SlackApiError as e:
-    #     print(f"Slack error: {e.response['error']}")
+            ]
+        )
+    except SlackApiError as e:
+        print(f"Slack error: {e.response['error']}")

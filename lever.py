@@ -4,34 +4,39 @@ import requests
 import pandas as pd
 
 
-class Greenhouse:
+class Lever:
     def __init__(self, keywords: List[str], remote_only: bool = True):
         self.keywords = keywords
         self.remote_only = remote_only
 
     def fetch_jobs(self, url: str, company_name: str) -> pd.DataFrame:
-        """Fetch jobs from Greenhouse API and return simplified dataframe."""
+        """Fetch jobs from Lever API and return simplified dataframe."""
         response = requests.get(url)
         response.raise_for_status()
 
-        jobs = response.json().get("jobs", [])
+        jobs = response.json()
         if not jobs:
             return pd.DataFrame()
 
         df = pd.json_normalize(jobs)
-        df = df.rename(columns={"location.name": "location", "absolute_url": "url"})
+        df = df.rename(columns={
+            "text": "title",
+            "hostedUrl": "url",
+            "categories.location": "location"
+        })
+
         df["company"] = company_name
-        df["ats"] = "greenhouse"
-        cols = ["company", "ats", "id", "title", "location", "url"]
-        return df[cols].astype(str)
+        df["ats"] = "lever"
+
+        return df
 
     def filter_jobs(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Filter jobs by remote location and keywords."""
+        """Filter jobs by remote workplaceType and keywords."""
         if df.empty:
             return df
 
         if self.remote_only:
-            df = df[df["location"].str.lower().str.contains("remote", na=False)]
+            df = df[df["workplaceType"] == "remote"]
 
         keyword_results = []
         for keyword in self.keywords:
@@ -42,7 +47,10 @@ class Greenhouse:
             return pd.DataFrame()
 
         df_filtered = pd.concat(keyword_results, ignore_index=True)
-        return df_filtered.drop_duplicates(subset=["company", "id"])
+        df_filtered = df_filtered.drop_duplicates(subset=["company", "id"])
+
+        cols = ["company", "ats", "id", "title", "location", "url"]
+        return df_filtered[cols].astype(str)
 
     def get_jobs(self, url: str, company_name: str) -> pd.DataFrame:
         """Fetch and filter jobs in one call."""

@@ -1,27 +1,69 @@
+import argparse
+import warnings
+
+warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
+
 import pandas as pd
 
-import greenhouse
+from greenhouse import Greenhouse
+from lever import Lever
 import slack
+from config import companies, keywords
 
 
-companies = ["mozilla", "missionlane"]
-keywords = ["data scientist"]
+def dedup_jobs(df: pd.DataFrame, jobs_file: str = "jobs.csv") -> pd.DataFrame:
+    """Remove jobs already in jobs.csv and append new ones."""
+    if df.empty:
+        return df
+
+    jobs_df = pd.read_csv(jobs_file, header=0, dtype=str)
+    merge_cols = ["company", "id"]
+
+    df_new = df.merge(jobs_df[merge_cols], on=merge_cols, how="left", indicator=True)
+    df_new = df_new[df_new["_merge"] == "left_only"].drop(columns=["_merge"])
+
+    if not df_new.empty:
+        df_new.to_csv(jobs_file, mode="a", index=False, header=False)
+
+    return df_new
 
 
-def main():
+def main(alert: bool = True):
+    greenhouse_scraper = Greenhouse(keywords=keywords, remote_only=True)
+    lever_scraper = Lever(keywords=keywords, remote_only=True)
+
     df_list = []
-    for company in companies:
-        print(f"Collecting jobs from {company}")
-        df = greenhouse.fetch_jobs(company=company)
-        df = greenhouse.filter_jobs(df=df, keywords=keywords, remote_only=True)
-        df_list.append(df)
-    
-    df_combined = pd.concat(df_list, ignore_index=True)
-    df_new = greenhouse.dedup_jobs(df_combined)
+    print("Collecting jobs:")
+    for company, config in companies.items():
+        print(f"-- {company}")
+        if config["ats"] == "greenhouse":
+            df = greenhouse_scraper.get_jobs(url=config["url"], company_name=company)
+            df_list.append(df)
+        elif config["ats"] == "lever":
+            df = lever_scraper.get_jobs(url=config["url"], company_name=company)
+            df_list.append(df)
+        else:
+            print(f"Unsupported ATS: {config['ats']}")
 
-    if df_new.shape[0] > 0:
-        slack.send_alert(df_new=df_new)
+    if not df_list:
+        print("No jobs collected")
+        return
+
+    df_combined = pd.concat(df_list, ignore_index=True)
+    df_new = dedup_jobs(df_combined)
+
+    if not df_new.empty:
+        if alert:
+            slack.send_alert(df_new=df_new)
+        else:
+            print(f"Found {len(df_new)} new jobs (alert disabled)")
+    else:
+        print("No new jobs found")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--no-alert", dest="alert", action="store_false", default=True,
+                        help="Disable Slack alert")
+    args = parser.parse_args()
+    main(alert=args.alert)
