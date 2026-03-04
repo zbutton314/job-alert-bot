@@ -3,9 +3,11 @@ import pandas as pd
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
+from config import *
+
 
 def send_alert(df_new: pd.DataFrame) -> None:
-    client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+    client = WebClient(token=SLACK_BOT_TOKEN)
 
     text = ""
     for company in df_new["company"].unique():
@@ -20,6 +22,8 @@ def send_alert(df_new: pd.DataFrame) -> None:
         response = client.chat_postMessage(
             channel="#job-alerts",
             text=text.strip(),
+            unfurl_links=False,
+            unfurl_media=False,
             blocks=[
                 {
                     "type": "section",

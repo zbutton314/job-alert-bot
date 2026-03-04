@@ -1,5 +1,12 @@
-# keywords = ["data scientist", "research engineer", "research scientist", "applied scientist"]
-keywords = ["data scientist"]
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv()
+SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
+
+
+keywords = ["data scientist", "research engineer", "research scientist", "applied scientist"]
 
 companies = {
     "Mozilla": {

@@ -1,5 +1,6 @@
 import argparse
 import warnings
+from datetime import datetime
 
 warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
 
@@ -33,9 +34,10 @@ def main(alert: bool = True):
     lever_scraper = Lever(keywords=keywords, remote_only=True)
 
     df_list = []
-    print("Collecting jobs:")
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    print(f"{timestamp}: Collecting jobs")
     for company, config in companies.items():
-        print(f"-- {company}")
+        # print(f"-- {company}")
         if config["ats"] == "greenhouse":
             df = greenhouse_scraper.get_jobs(url=config["url"], company_name=company)
             df_list.append(df)
@@ -43,10 +45,10 @@ def main(alert: bool = True):
             df = lever_scraper.get_jobs(url=config["url"], company_name=company)
             df_list.append(df)
         else:
-            print(f"Unsupported ATS: {config['ats']}")
+            print(f"-- Unsupported ATS: {config['ats']}")
 
     if not df_list:
-        print("No jobs collected")
+        print("-- No jobs collected")
         return
 
     df_combined = pd.concat(df_list, ignore_index=True)
@@ -58,7 +60,7 @@ def main(alert: bool = True):
         else:
             print(f"Found {len(df_new)} new jobs (alert disabled)")
     else:
-        print("No new jobs found")
+        print("-- No new jobs found")
 
 
 if __name__ == "__main__":
